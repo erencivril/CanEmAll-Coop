@@ -1,0 +1,112 @@
+name: Bug report
+description: Something does not work, desyncs, crashes or looks wrong in a co-op session.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Co-op bugs are almost impossible to diagnose without the logs of **both** players, so please fill in everything below.
+
+        Before you submit, check the [README FAQ and troubleshooting](https://github.com/erencivril/CanEmAll-Coop#faq-and-troubleshooting) (friend not showing up, Steam game details privacy, firewall, version mismatch).
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: All players use the same mod version.
+          required: true
+        - label: I searched the existing issues.
+          required: true
+  - type: input
+    id: mod_version
+    attributes:
+      label: Mod version
+      description: For example 0.1.0. It is in the file name of the zip, and in `BepInEx/LogOutput.log` ("Can 'Em All Co-op 0.1.0 loaded").
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Your role when the problem happened
+      options:
+        - Host
+        - Client
+        - Not in a session (offline / solo)
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: transport
+    attributes:
+      label: How were you connected?
+      options:
+        - Steam
+        - Direct IP (LAN)
+        - Direct IP (VPN)
+        - Direct IP (port forwarding)
+        - Not connected
+    validations:
+      required: true
+  - type: dropdown
+    id: players
+    attributes:
+      label: Number of players in the session
+      options:
+        - "1 (offline)"
+        - "2"
+        - "3"
+        - "4"
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: Install type and game
+      description: Full zip, plugin-only zip, or built from source. Also the date or build of the game if you know it.
+      placeholder: "full zip, game updated on ..."
+    validations:
+      required: false
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: Describe the problem, and when in the game it happened (day, shop or day phase, what you were doing).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you know how to make it happen again, list the steps.
+      placeholder: |
+        1. Host starts a session
+        2. ...
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: LogOutput.log from both players
+      description: |
+        Drag and drop the file `BepInEx/LogOutput.log` (in the game folder) **from the host and from the client** into this box. Copy it before you start the game again, because the next launch overwrites it. Label which one is which.
+
+        If the problem is hard to pin down, set `StateLogSeconds = 2` in `BepInEx/config/com.eren.canemallcoop.cfg` for the next run: it writes a status line every 2 seconds.
+
+        Note: the logs contain your Steam name and SteamID64. Edit them out if you prefer, but leave the rest intact.
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, other mods installed, non-default config values, a video.
+    validations:
+      required: false

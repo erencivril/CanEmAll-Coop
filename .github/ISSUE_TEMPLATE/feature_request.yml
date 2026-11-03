@@ -1,0 +1,60 @@
+name: Feature request or balance feedback
+description: Suggest an improvement, or tell us how the balance felt.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome. Balance feedback is especially useful: tell us the day, the number of players, roughly which skills you had, and whether the team felt faster or slower than a solo run. How the balancing works is explained in [docs/BALANCING.md](https://github.com/erencivril/CanEmAll-Coop/blob/main/docs/BALANCING.md).
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Balancing
+        - Steam or networking
+        - Menu and UI
+        - Gameplay sync (enemies, cans, grabbing)
+        - Team rules (ready-up, death, respawn)
+        - Config options
+        - Packaging and install
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+    validations:
+      required: false
+  - type: textarea
+    id: balance_data
+    attributes:
+      label: Balance feedback data (only for balance suggestions)
+      description: Day, number of players, key skills unlocked, money per day if you know it, and what felt too fast or too slow. A `[Pace]` or `[STATE]` excerpt from the log helps.
+    validations:
+      required: false
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you like to work on it?
+      options:
+        - "No, just the idea"
+        - "Maybe, with guidance"
+        - "Yes, I can send a pull request"
+    validations:
+      required: false
