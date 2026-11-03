@@ -5,7 +5,7 @@
 ![BepInEx 6 IL2CPP](https://img.shields.io/badge/BepInEx-6%20IL2CPP-blue)
 ![Players 2-4](https://img.shields.io/badge/players-2--4-brightgreen)
 ![License MIT](https://img.shields.io/badge/license-MIT-yellow)
-![Latest release](https://img.shields.io/github/v/release/erencivril/CanEmAll-Coop)
+![Latest release](https://img.shields.io/github/v/release/erencivril/CanEmAll-Coop?include_prereleases)
 
 > **Status: pre-release (v0.1.0).** This version has been tested on **one PC with two game instances** joined over Direct TCP, which played several full days together. **The Steam connection between two different Steam accounts has not been confirmed yet**, and hand-played mechanics such as grabbing and throwing have not been through long sessions. Direct IP is the tested path; if Steam does not connect for you, please [open an issue](https://github.com/erencivril/CanEmAll-Coop/issues). Feedback is very welcome. See [Known limitations](#known-limitations) and [docs/TESTING.md](docs/TESTING.md) before you invite your friends.
 
