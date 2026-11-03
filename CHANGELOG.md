@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-04
+
+### Fixed
+
+- Clients could not carry dead bodies. A dead body on a client stayed kinematic, so the game's force-based hold could not move it. A held body now has real physics on the holder's side and is handed back to the host after the throw or drop.
+- Enemies crab-walked on clients. The game turns an enemy's `visual` child towards its walking direction and leaves the root at its spawn rotation; the mod streamed the root. The host now streams the facing of live enemies and clients apply it to `visual`.
+- Client punches often missed. Enemy colliders on clients kept their shrunken in-truck shape because the game restores it in code the mod disables on clients. The walking capsule is now restored when an enemy leaves the truck.
+- Cans a client vacuumed and threw could fly past the reward pipe unpaid, because the host skipped the game's own grab handling for vacuum grabs.
+- Skill tree nodes bought by another player did not show their purchased colours on clients.
+
+### Added
+
+- Log lines (rate-limited) when a client grab is refused, a client hit is dropped, or a can sits in the reward pipe for 3 seconds without being paid.
+- Debug drivers for grabbing bodies, punching, vacuuming, enemy facing and skill colours (see the header of `Debug/DebugModule.cs`).
+
+All players must update: 0.1.2 refuses older versions.
+
 ## [0.1.1] - 2026-11-03
 
 ### Fixed
@@ -52,6 +69,7 @@ First public release.
 
 See the README for the complete list.
 
-[Unreleased]: https://github.com/erencivril/CanEmAll-Coop/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/erencivril/CanEmAll-Coop/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/erencivril/CanEmAll-Coop/releases/tag/v0.1.2
 [0.1.1]: https://github.com/erencivril/CanEmAll-Coop/releases/tag/v0.1.1
 [0.1.0]: https://github.com/erencivril/CanEmAll-Coop/releases/tag/v0.1.0

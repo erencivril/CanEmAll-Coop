@@ -201,6 +201,12 @@ internal static class ShopSync
             if (!GameAccess.Contains(save.unlockedSkills, m.SkillId)) save.unlockedSkills.Add(skill.skillId);
             skill.isPurchased = true;
             Guard("RefreshLockState", () => node.RefreshLockState());
+            // OnClick tints a bought node with its own colours; the remote purchase skips OnClick, so the client did not show it
+            Guard("PurchasedColors", () =>
+            {
+                if (node.background != null) node.background.color = node.purchasedColor;
+                if (node.icon != null) node.icon.color = node.purchasedIconColor;
+            });
             Guard("ApplySkill", () => skill.ApplySkill());
             var tree = GameAccess.Tree;
             if (tree != null)

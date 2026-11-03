@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using CanEmAllCoop.Core;
+using CanEmAllCoop.Enemies;
 using UnityEngine;
 
 namespace CanEmAllCoop.Cans;
@@ -31,6 +32,14 @@ public static class GrabSync
     static readonly Dictionary<uint, HeldPose> LastPose = new();
     static readonly HashSet<uint> VacSet = new();
     static readonly HashSet<uint> VacScratch = new();
+
+    static readonly LogGate Gate = new();
+
+    static void Note(string key, string msg)
+    {
+        if (Gate.Allow(key, Time.realtimeSinceStartup, out var n))
+            Log.Info(n > 0 ? $"Cans: {msg} (+{n} more)" : $"Cans: {msg}");
+    }
 
     static uint _handId;
     static int _vacCount;
@@ -76,7 +85,18 @@ public static class GrabSync
         uint id = NetIds.IdOf(target);
         if (id == 0) return true;
         int holder = Table.HolderOf(id);
-        return holder == GrabTable.None || holder == Items.LocalIndex;
+        bool ok = holder == GrabTable.None || holder == Items.LocalIndex;
+        if (!ok) Note("grab-refused", $"grab of #{id} ({Describe(target)}) refused locally, player {holder} holds it");
+        return ok;
+    }
+
+    static string Describe(Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase o)
+    {
+        var c = Items.AsComponent(o);
+        if (c == null) return "?";
+        if (c.TryCast<Enemy>() != null) return "body";
+        if (c.TryCast<Can>() != null) return "can";
+        return "crate";
     }
 
     internal static void BeforeThrow(Player player)
@@ -184,6 +204,7 @@ public static class GrabSync
         {
             Table.Force(id, Items.LocalIndex, kind);
             CanClient.BeginLocalHold(id);
+            ClientPuppets.OnLocalGrab(id);
             Net.SendToHost(CanMsg.GrabReq, w => { w.Write(id); w.Write((byte)kind); });
         }
     }
@@ -223,6 +244,7 @@ public static class GrabSync
         {
             Table.Force(id, GrabTable.None, kind);
             CanClient.EndLocalHold(id, vel, simulate: !gone);
+            ClientPuppets.OnLocalRelease(id, vel, simulate: !gone);
             Net.SendToHost(CanMsg.Release, w =>
             {
                 w.Write(id);
@@ -285,9 +307,16 @@ public static class GrabSync
         uint id = r.ReadUInt();
         var kind = (GrabKind)r.ReadByte();
 
-        bool ok = Items.TryResolve(id, out var comp) && Table.TryGrab(id, from.Index, kind);
+        bool known = Items.TryResolve(id, out var comp);
+        bool ok = known && Table.TryGrab(id, from.Index, kind);
         Net.SendTo(from, CanMsg.GrabResult, w => { w.Write(id); w.Write((byte)kind); w.Write(ok); });
-        if (!ok) return;
+        if (!ok)
+        {
+            Note("grab-denied", known
+                ? $"host denied {kind} grab of #{id} to player {from.Index}, player {Table.HolderOf(id)} holds it"
+                : $"host denied {kind} grab of #{id} to player {from.Index}: the host has no object with that id");
+            return;
+        }
 
         Guard.Run("host apply grab", () => HostApplyGrab(comp, kind));
         BroadcastOwner(id, from.Index, kind, includePose: false, except: from);
@@ -295,14 +324,13 @@ public static class GrabSync
 
     static void HostApplyGrab(Component comp, GrabKind kind)
     {
-        if (kind == GrabKind.Vacuum)
-        {
-            comp.gameObject.SetActive(false);
-            return;
-        }
+        // The game's Vacuum.Suck calls OnGrabbed before it hides the object, and OnThrown / OnDropped later put back what OnGrabbed
+        // saved (gravity, rotation lock, layer). Skipping it for a vacuumed can left those fields at their defaults on the host, so
+        // a can thrown out of a client's vacuum flew on without gravity and never reached the reward pipe.
         Items.OnGrabbed(comp);
         var rb = Items.RigidbodyOf(comp);
         if (rb != null) { rb.linearVelocity = Vector3.zero; rb.isKinematic = true; }
+        if (kind == GrabKind.Vacuum) comp.gameObject.SetActive(false);
     }
 
     static void OnGrabResult(Peer from, NetReader r)
@@ -311,6 +339,7 @@ public static class GrabSync
         var kind = (GrabKind)r.ReadByte();
         bool ok = r.ReadBool();
         if (ok) return;
+        Note("grab-rollback", $"the host refused our {kind} grab of #{id}, rolling it back");
         Guard.Run("grab rollback", () => RollBack(id, kind));
     }
 
@@ -326,6 +355,7 @@ public static class GrabSync
             var held = pl?.HeldEnemy;
             if (pl != null && held != null) pl.ClearGrabbable(held);
             CanClient.EndLocalHold(id, Vector3.zero, simulate: false);
+            ClientPuppets.OnLocalRelease(id, Vector3.zero, simulate: false);
             return;
         }
 
@@ -342,6 +372,7 @@ public static class GrabSync
         }
         if (list != null) _vacCount = list.Count;
         CanClient.EndLocalHold(id, Vector3.zero, simulate: false);
+        ClientPuppets.OnLocalRelease(id, Vector3.zero, simulate: false);
     }
 
     static void OnOwnerSet(Peer from, NetReader r)
@@ -420,7 +451,11 @@ public static class GrabSync
         Items.ReadPose(r, out var pos, out var rot);
         Vector3 vel = Items.ReadVec(r);
 
-        if (!Table.TryRelease(id, from.Index, out var heldKind)) return;
+        if (!Table.TryRelease(id, from.Index, out var heldKind))
+        {
+            Note("release-ignored", $"release of #{id} from player {from.Index} ignored: the host table says player {Table.HolderOf(id)} holds it");
+            return;
+        }
         LastPose.Remove(id);
 
         if (Items.TryResolve(id, out var comp))
@@ -437,6 +472,7 @@ public static class GrabSync
             var can = comp as Can ?? comp.TryCast<Can>();
             if (can != null)
             {
+                Note("vacuum-gone", $"can #{id} left a vacuum that was cleared, returned to the pool unpaid (qty {can.quantity})");
                 comp.gameObject.SetActive(true);
                 GameManager.Instance?.ReturnCanToPool(can);
                 CanHost.ForgetAndAnnounceGone(id);
@@ -459,7 +495,7 @@ public static class GrabSync
         var rb = Items.RigidbodyOf(comp);
         if (rb != null) rb.isKinematic = false;
         if (thrown) Items.OnThrown(comp, vel);     // sets Can.HoleInOne on the authoritative machine
-        else if (kind == GrabKind.Hand) Items.OnDropped(comp);
+        else Items.OnDropped(comp);                // hand drop, or a holder that left with the object still in its vacuum
         if (rb != null)
         {
             rb.isKinematic = false;

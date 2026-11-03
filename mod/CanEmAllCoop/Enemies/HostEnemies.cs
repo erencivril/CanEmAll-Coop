@@ -17,6 +17,7 @@ internal static class HostEnemies
     {
         public Enemy E;
         public Transform Tr;   // cached: Component.transform allocates a new interop proxy on every call (read for every enemy every tick)
+        public Transform Vis;  // Enemy.visual, cached the same way
         public uint Id;
         public SentState S;
         public bool DeathSent;
@@ -102,7 +103,7 @@ internal static class HostEnemies
         var e = t.E;
         var tr = e.transform;
         var p = tr.position;
-        var q = tr.rotation;
+        var q = PoseRotation(t, e.IsDead);
         float max = Mathf.Max(e.maxHealth, 1f);
         return new SpawnEntry
         {
@@ -115,6 +116,21 @@ internal static class HostEnemies
             X = p.x, Y = p.y, Z = p.z,
             Rot = new Quat4(q.x, q.y, q.z, q.w),
         };
+    }
+
+    /// <summary>
+    /// The rotation a client has to show. A live enemy turns Enemy.visual towards its walking direction (Enemy.Update) and its
+    /// root keeps the spawn rotation, so the root says nothing about where it looks; a dead body is a ragdoll oriented through
+    /// the root.
+    /// </summary>
+    static Quaternion PoseRotation(Tracked t, bool dead)
+    {
+        if (!dead)
+        {
+            var vis = t.Vis ??= t.E.visual;
+            if (vis != null) return vis.rotation;
+        }
+        return (t.Tr ??= t.E.transform).rotation;
     }
 
     static ushort PrefabIndex(Truck truck, Enemy e)
@@ -333,7 +349,7 @@ internal static class HostEnemies
 
         var tr = t.Tr ??= e.transform;
         var p = tr.position;
-        var qq = tr.rotation;
+        var qq = PoseRotation(t, dead);
         var q = new Quat4(qq.x, qq.y, qq.z, qq.w);
         if (!SentState.NeedsSend(in t.S, p.x, p.y, p.z, q, dead, now, PosEps, RotEpsDeg, KeyframeSeconds)) return false;
 

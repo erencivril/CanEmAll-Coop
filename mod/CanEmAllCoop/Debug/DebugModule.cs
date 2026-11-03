@@ -28,6 +28,16 @@ using Net = CanEmAllCoop.Net.Net;
 ///   --coop-debug-steamcheck          logs the Steam flat API state and runs StartHostSteam() for a few seconds
 ///   --coop-debug-openmenu=seconds    opens the F7 co-op panel that many seconds after the process started (so a screenshot shows the status / refusal text)
 ///   --coop-debug-closemenu=seconds   closes it again that many seconds after the process started (opened at the main menu, closed in game: cursor check)
+/// Scenario drivers (DebugDrivers.cs); they call the game's own methods and log numbers, run on whichever side gets the switch:
+///   --coop-debug-grabbody[=seconds]  picks the nearest dead body up with Player.GrabDeadBody, walks the player with it for N seconds (default 6) and logs body-player
+///                                    distance, then Player.ThrowHeldBody and logs the flight; "grabbody #n: RESULT" lines (client: fix 1)
+///   --coop-debug-punch[=seconds]     every N seconds (default 3): stands in front of the nearest live enemy, aims the camera at it and starts Inventory.PunchDelayed
+///                                    (what Inventory.Punch starts, ends in Enemy.Damage); logs hitsSent / hitsApplied deltas ("punch #n: HIT SENT / NO HIT")
+///   --coop-debug-vacuum[=seconds]    every N seconds (default 6): Vacuum.Suck on the nearest can, then Vacuum.Throw aimed at the reward pipe; "vacuum #n" lines
+///   --coop-debug-facing[=seconds]    every N seconds (default 5): mean angle between Enemy.visual.forward (and the root) and the walking direction of moving enemies
+///   --coop-debug-skillcolors[=sec]   scans the skill tree every N seconds (default 1): purchased nodes must carry purchasedColor / purchasedIconColor
+///   --coop-debug-holdwatch[=sec]     host: logs objects a remote player holds / has just thrown (pos, speed, kinematic) every N seconds (default 0.5) and every paid can
+///   --coop-debug-nocarry             with --coop-debug-grind: do not carry cans to the reward pipe (leave them to the vacuum driver)
 /// </summary>
 public sealed class DebugModule : ICoopModule
 {
@@ -50,6 +60,7 @@ public sealed class DebugModule : ICoopModule
     float _steamAt;
     bool _loggedArgs;
     float _ftAvg, _ftMax;
+    readonly DebugDrivers _drivers = new();
 
     public void Init(Harmony harmony)
     {
@@ -76,6 +87,7 @@ public sealed class DebugModule : ICoopModule
                     foreach (var d in (value ?? "").Split(',')) if (int.TryParse(d, out var dn)) _dieDays.Add(dn);
                     break;
                 case "--coop-debug-tag": if (!string.IsNullOrEmpty(value)) _tag = value; break;
+                default: DebugDrivers.Parse(name.ToLowerInvariant(), value); break;
             }
         }
         _loggedArgs = false;
@@ -84,7 +96,7 @@ public sealed class DebugModule : ICoopModule
     static float Secs(string v, float def) =>
         float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out var s) && s > 0f ? s : def;
 
-    bool AnyActive => _autoWalk || _steamCheck || _money > 0 || _dieAt > 0 || _grindEvery > 0 || _tpEvery > 0 || _buyEvery > 0 || _hitEvery > 0 || _shotEvery > 0 || _openMenuAt > 0;
+    bool AnyActive => _autoWalk || _steamCheck || _money > 0 || _dieAt > 0 || _grindEvery > 0 || _tpEvery > 0 || _buyEvery > 0 || _hitEvery > 0 || _shotEvery > 0 || _openMenuAt > 0 || _drivers.Active;
 
     public void OnUpdate()
     {
@@ -100,6 +112,7 @@ public sealed class DebugModule : ICoopModule
         }
 
         TrackPhase();
+        if (_drivers.Active) _drivers.Tick(now);
         if (_autoWalk && !Net.IsOnline) AutoWalk(now);
         if (_buyEvery > 0f && now >= _nextBuy) { _nextBuy = now + _buyEvery; Safe(AutoBuy, "autobuy"); }
         if (_hitEvery > 0f && now >= _nextHit) { _nextHit = now + _hitEvery; Safe(AutoHit, "autohit"); }
@@ -271,6 +284,7 @@ public sealed class DebugModule : ICoopModule
         if (moved > 0) { _ground += moved; Log.Info($"[DEBUG] grind: moved {moved} dead enemies to the grinder at {target} (total {_ground}) role {Net.Role}"); }
 
         // cans that came out of the grinder: carry them to the reward pipe like a player would
+        if (DebugDrivers.NoCarry) return;
         RewardMachine rm = null;
         foreach (var r in UnityEngine.Object.FindObjectsOfType<RewardMachine>()) { rm = r; break; }   // FindObjectOfType<T> is stripped in this build
         if (rm == null || rm.point == null) return;

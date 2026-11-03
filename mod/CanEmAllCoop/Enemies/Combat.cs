@@ -16,18 +16,36 @@ internal static class Combat
 {
     // ---- client -----------------------------------------------------------------------------------------------
 
+    static readonly LogGate Gate = new();
+
+    static void Note(string key, string msg)
+    {
+        if (Gate.Allow(key, Time.realtimeSinceStartup, out var n))
+            Log.Info(n > 0 ? $"Enemies: {msg} (+{n} more)" : $"Enemies: {msg}");
+    }
+
     static readonly List<HitEntry> PendingHits = new();
     static readonly Dictionary<uint, float> PendingBurn = new();
     static readonly List<BurnEntry> BurnScratch = new();
     public static long HitsSent, HitResults;
+    /// <summary>Id of the enemy the last client hit was sent for (debug drivers compare it with the enemy they aimed at).</summary>
+    public static uint LastClientHitId;
 
     /// <summary>Prefix of Enemy.Damage. Returns false when the call was turned into a network request.</summary>
     public static bool ClientDamage(Enemy e, float damage, Vector3 dir, Vector3 pos, float radiusMult,
         bool blood, bool text, bool scream, bool flash, float probMult)
     {
-        if (!ClientPuppets.TryGet(e, out var puppet)) return true;   // not a replicated enemy: vanilla
+        if (!ClientPuppets.TryGet(e, out var puppet))
+        {
+            Note("hit-not-puppet", $"client hit on an enemy that is not a puppet ({e.name} at {e.transform.position}), applied locally and not sent to the host");
+            return true;   // not a replicated enemy: vanilla
+        }
 
-        if (float.IsNaN(damage) || float.IsInfinity(damage)) return false;
+        if (float.IsNaN(damage) || float.IsInfinity(damage))
+        {
+            Note("hit-bad-damage", $"client hit on #{puppet.Id} dropped, damage is {damage}");
+            return false;
+        }
         byte flags = (byte)((blood ? HitFlags.Blood : 0) | (text ? HitFlags.Text : 0) |
                             (scream ? HitFlags.Scream : 0) | (flash ? HitFlags.Flash : 0));
         PendingHits.Add(new HitEntry
@@ -39,6 +57,7 @@ internal static class Combat
             WeaponIdx = (sbyte)Math.Clamp(CurrentWeaponIndex(), -1, 127),
         });
 
+        LastClientHitId = puppet.Id;
         LocalFeedback(e, dir, pos, radiusMult, blood, scream, flash);
         return false;
     }
@@ -181,8 +200,16 @@ internal static class Combat
         {
             try
             {
-                if (!NetIds.TryGet(h.Id, out Enemy e) || e == null) continue;
-                if (!(h.Damage >= 0f) || h.Damage > 1e7f) continue;
+                if (!NetIds.TryGet(h.Id, out Enemy e) || e == null)
+                {
+                    Note("hit-unknown", $"host dropped a hit from player {sender?.Index}: no enemy with id #{h.Id}");
+                    continue;
+                }
+                if (!(h.Damage >= 0f) || h.Damage > 1e7f)
+                {
+                    Note("hit-bad-damage-host", $"host dropped a hit on #{h.Id} from player {sender?.Index}: damage {h.Damage}");
+                    continue;
+                }
 
                 bool wasDead = e.IsDead;
                 _capDamage = 0f; _capTag = 0; _capBase = h.Damage;
@@ -203,6 +230,8 @@ internal static class Combat
                 HitsApplied++;
 
                 bool died = !wasDead && e.IsDead;
+                if (_capDamage <= 0f && !died && !wasDead)
+                    Note("hit-no-effect", $"host: hit on #{h.Id} from player {sender?.Index} did nothing (state {e.state}, dead {e.IsDead}, damage {h.Damage}); Enemy.Damage ignores enemies that are not roaming");
                 bool free = false;
                 if (died && h.WeaponIdx >= 0)
                 {

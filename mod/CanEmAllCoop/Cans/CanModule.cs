@@ -83,7 +83,7 @@ public sealed class CanModule : ICoopModule
     {
         string patches = $"patches={CanPatches.Applied}/{CanPatches.Applied + CanPatches.Failed}";
         if (Net.IsHost)
-            return $"{patches} tracked={CanHost.TrackedCount} holds={GrabSync.HoldCount} errors={Guard.TotalFailures}";
+            return $"{patches} tracked={CanHost.TrackedCount} paid={CanHost.Paid} holds={GrabSync.HoldCount} errors={Guard.TotalFailures}";
         if (Net.IsClient)
             return $"{patches} puppets={CanClient.PuppetCount} pending={CanClient.PendingCount} holds={GrabSync.HoldCount} hand={GrabSync.LocalHandId} errors={Guard.TotalFailures}";
         return patches;

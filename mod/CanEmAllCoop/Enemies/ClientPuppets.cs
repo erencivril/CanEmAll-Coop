@@ -22,6 +22,8 @@ internal static class ClientPuppets
         public IntPtr Ptr;
         public Transform Tr;                 // cached: Component.transform builds a new interop proxy on every call
         public Rigidbody Rb;
+        public Transform Vis;                // Enemy.visual: the transform Enemy.Update turns towards the walking direction
+        public float SimUntil;               // the local player let go of the body: real physics until then (unscaled time)
         public bool HasApplied;              // AX..ARot are what was last written to the transform
         public float AX, AY, AZ;
         public Quat4 ARot;
@@ -34,6 +36,11 @@ internal static class ClientPuppets
 
     /// <summary>Render delay behind the newest snapshot: ~1.5 snapshot intervals.</summary>
     static float InterpDelay => 1.5f / Mathf.Max(1, CoopConfig.EnemyRateHz);
+
+    // Enemy.ExitTruck gives the capsule its walking shape once an enemy is out of the truck (PrepareInsideTruck shrinks it). That
+    // method is part of the patched-off FixedUpdate, so the release handler has to do it. Constants read from ExitTruck.
+    const float WalkRadius = 0.3f, WalkCenterY = 0.6f, WalkHeight = 1.2f;
+    const float ThrowSimSeconds = 0.4f;
 
     static readonly Dictionary<uint, Puppet> ById = new();
     static readonly Dictionary<IntPtr, Puppet> ByPtr = new();
@@ -156,7 +163,7 @@ internal static class ClientPuppets
         e.IsShiny = s.Shiny;
 
         var rb = e.rb;
-        var p = new Puppet { E = e, Id = s.Id, Ptr = e.Pointer, Tr = e.transform, Rb = rb };
+        var p = new Puppet { E = e, Id = s.Id, Ptr = e.Pointer, Tr = e.transform, Rb = rb, Vis = e.visual };
         if (rb != null) p.SavedInterp = rb.interpolation;
 
         if (s.State != 0)
@@ -165,6 +172,7 @@ internal static class ClientPuppets
             if (rb != null) rb.isKinematic = false;
             e.ReleaseFromTruck(Vector3.forward, truck.exitSpeed, truck.roamRadius);
             e.state = Enemy.State.Roaming;
+            RestoreWalkCollider(e);
         }
 
         ById[s.Id] = p;
@@ -173,6 +181,7 @@ internal static class ClientPuppets
         MakeKinematic(p);
 
         e.transform.SetPositionAndRotation(pos, rot);
+        if (!s.Dead && p.Vis != null) p.Vis.rotation = rot;   // the host sends the facing of a live enemy (see HostEnemies.Wants)
         p.Buf.Add(now, s.X, s.Y, s.Z, s.Rot);
 
         if (s.HealthPct < 100 && !s.Dead)
@@ -182,6 +191,30 @@ internal static class ClientPuppets
         }
         if (s.Dead) MarkDead(p, Vector3.zero, Vector3.zero);
         SpawnsApplied++;
+    }
+
+    static int _colliderLogs;
+
+    static void RestoreWalkCollider(Enemy e)
+    {
+        try
+        {
+            var cap = e.mainCollider?.TryCast<CapsuleCollider>();
+            if (cap == null) return;
+            if (_colliderLogs < 2)
+            {
+                _colliderLogs++;
+                Log.Info($"Enemies: puppet capsule restored: radius {cap.radius:0.00} -> {WalkRadius:0.00}, height {cap.height:0.00} -> {WalkHeight:0.00}, center y {cap.center.y:0.00} -> {WalkCenterY:0.00}");
+            }
+            cap.radius = WalkRadius;
+            cap.center = new Vector3(0f, WalkCenterY, 0f);
+            cap.height = WalkHeight;
+        }
+        catch (Exception ex)
+        {
+            Failures++;
+            if (Failures <= 5) Log.Error("Enemies: puppet collider restore failed", ex);
+        }
     }
 
     static void MakeKinematic(Puppet p)
@@ -210,6 +243,7 @@ internal static class ClientPuppets
                     if (rb != null) rb.isKinematic = false;   // ReleaseFromTruck writes velocities
                     p.E.ReleaseFromTruck(dir, speed, roam);
                     p.E.state = Enemy.State.Roaming;
+                    RestoreWalkCollider(p.E);
                     MakeKinematic(p);
                     p.HasApplied = false;
                 }
@@ -261,6 +295,11 @@ internal static class ClientPuppets
             var e = p.E;
             if (e == null) { Scratch.Add(p.Id); continue; }
             if (ExternallyControlled.Contains(p.Id) || CanEmAllCoop.Cans.GrabSync.IsHeldByLocal(p.Id)) { p.HasApplied = false; continue; }
+            if (p.SimUntil != 0f)
+            {
+                if (now < p.SimUntil) { p.HasApplied = false; continue; }   // thrown / dropped by the local player: let the body fly
+                EndSim(p, now);
+            }
             if (!p.Buf.TrySample(renderTime, out var s)) continue;
 
             // Resting puppet (same pose as last frame, no velocity, walk cycle already settled): no engine call at all.
@@ -274,7 +313,13 @@ internal static class ClientPuppets
 
             var tr = p.Tr;
             if (tr == null) tr = p.Tr = e.transform;
-            tr.SetPositionAndRotation(new Vector3(s.X, s.Y, s.Z), new Quaternion(s.Rot.X, s.Rot.Y, s.Rot.Z, s.Rot.W));
+            var pos = new Vector3(s.X, s.Y, s.Z);
+            var rot = new Quaternion(s.Rot.X, s.Rot.Y, s.Rot.Z, s.Rot.W);
+            // A live enemy faces its walking direction through Enemy.visual (the root keeps its spawn rotation) and the host
+            // streams that rotation for live enemies; only a dead body is oriented through its root.
+            var vis = p.Dead ? null : p.Vis;
+            if (vis != null) { tr.position = pos; vis.rotation = rot; }
+            else tr.SetPositionAndRotation(pos, rot);
             p.AX = s.X; p.AY = s.Y; p.AZ = s.Z; p.ARot = s.Rot; p.HasApplied = true;
             p.Applied = true;
             PosesApplied++;
@@ -305,6 +350,60 @@ internal static class ClientPuppets
         {
             _animFailures++;
             Log.Error($"Enemies: puppet animation update failed ({_animFailures}/5)", ex);
+        }
+    }
+
+    // ---- local grab (cans module) -----------------------------------------------------------------------------
+
+    /// <summary>
+    /// The local player picked a dead body up. The game moves a held body by writing Rigidbody.linearVelocity, which a kinematic
+    /// body ignores (the hold would then drop by itself as soon as the player walks away), so the puppet gets real physics back
+    /// for as long as it is held. Apply() leaves it alone meanwhile (GrabSync.IsHeldByLocal).
+    /// </summary>
+    public static void OnLocalGrab(uint id)
+    {
+        if (!ById.TryGetValue(id, out var p) || p.E == null) return;
+        p.SimUntil = 0f;
+        var rb = p.Rb;
+        if (rb != null) rb.isKinematic = false;
+    }
+
+    /// <summary>
+    /// The local player dropped / threw the body (or the host refused the grab). The host takes the physics over from the Release
+    /// message; until its stream catches up the body keeps simulating here, otherwise it would snap back to the pose it had
+    /// before the grab.
+    /// </summary>
+    public static void OnLocalRelease(uint id, Vector3 velocity, bool simulate)
+    {
+        if (!ById.TryGetValue(id, out var p) || p.E == null) return;
+        var rb = p.Rb;
+        if (simulate && rb != null)
+        {
+            rb.isKinematic = false;
+            rb.linearVelocity = velocity;
+            p.SimUntil = Time.unscaledTime + ThrowSimSeconds;
+            return;
+        }
+        EndSim(p, Time.unscaledTime);
+    }
+
+    // Back to the host stream from wherever the local simulation left the body (no jump: the buffer restarts at this pose).
+    static void EndSim(Puppet p, float now)
+    {
+        p.SimUntil = 0f;
+        p.HasApplied = false;
+        var tr = p.Tr;
+        if (tr == null) tr = p.Tr = p.E.transform;
+        var pos = tr.position;
+        var q = tr.rotation;
+        p.Buf.Clear();
+        p.Buf.Add(now, pos.x, pos.y, pos.z, new Quat4(q.x, q.y, q.z, q.w));
+        var rb = p.Rb;
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.isKinematic = true;
         }
     }
 

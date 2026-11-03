@@ -40,6 +40,12 @@ internal static class CanHost
     static Can _lastCompat;
     static bool _spawnedInCreate;
 
+    // Cans that stay inside the reward pipe's sphere without being paid (RewardMachine.Update pays any can in it within a frame).
+    static readonly DwellTracker InPipe = new();
+    static readonly HashSet<uint> InPipeNow = new();
+    static readonly LogGate Gate = new(3, 10f);
+    const float UnpaidDwellSeconds = 3f;
+
     static float _nextStream;
     static float _nextSweep;
     static uint[] _crateIds = Array.Empty<uint>();
@@ -64,6 +70,9 @@ internal static class CanHost
         _crateIds = Array.Empty<uint>();
         _crateIdsDirty = false;
         _nextStream = _nextSweep = 0f;
+        InPipe.Clear();
+        InPipeNow.Clear();
+        Gate.Clear();
     }
 
     // ---------------------------------------------------------------- hooks (host only, called from patches)
@@ -93,9 +102,15 @@ internal static class CanHost
         _lastCompat = null;
     }
 
+    public static int Paid, LastPaidQty;
+    public static uint LastPaidId;
+
     /// <summary>RewardMachine started the return-to-pool delay of a can: it was paid.</summary>
     public static void OnPaid(Can can)
     {
+        Paid++;
+        LastPaidQty = can.quantity;
+        LastPaidId = NetIds.IdOf(can);
         uint id = NetIds.IdOf(can);
         if (id == 0 || !Registry.ContainsKey(id)) return;
         if (HasPeers) Net.Broadcast(CanMsg.Paid, w => w.Write(id));
@@ -222,6 +237,12 @@ internal static class CanHost
 
         TrackCrates(gm);
 
+        InPipeNow.Clear();
+        float now = Time.realtimeSinceStartup;
+        var rm = RewardMachine.Instance;
+        var pipe = rm != null && rm.point != null ? rm.point.position : (Vector3?)null;
+        float pipeRadius = rm != null ? rm.radius : 0f;
+
         Scratch.Clear();
         foreach (var kv in Registry) Scratch.Add(kv.Key);
         foreach (uint id in Scratch)
@@ -238,7 +259,13 @@ internal static class CanHost
                 continue;
             }
             if (t.Can.quantity != t.Qty) NoteQuantity(t.Can);
+            if (pipe.HasValue && t.T != null && (t.T.position - pipe.Value).sqrMagnitude <= pipeRadius * pipeRadius)
+            {
+                InPipeNow.Add(id);
+                if (InPipe.Inside(id, now, UnpaidDwellSeconds)) ReportUnpaid(t, pipe.Value, now);
+            }
         }
+        InPipe.Prune(InPipeNow);
 
         var all = UnityEngine.Object.FindObjectsByType<Can>(FindObjectsSortMode.None);
         if (all == null) return;
@@ -255,6 +282,21 @@ internal static class CanHost
             }
             Track(c, c.sourceProcessor != null ? ProcessorIndex(c.sourceProcessor) : -1, 0, announce: true);
         }
+    }
+
+    // A can sat inside the pipe's sphere for UnpaidDwellSeconds and is neither paid nor pooled: say why it is not seen by the pay loop.
+    static void ReportUnpaid(Tracked t, Vector3 pipe, float now)
+    {
+        if (!Gate.Allow("unpaid", now, out var more)) return;
+        string hold = GrabSync.Table.TryGetHold(t.Id, out var h) ? $"held by player {h.Holder} ({h.Kind})" : "not held";
+        var can = t.Can;
+        var go = can.gameObject;
+        var rb = can.rb;
+        var col = can.mainCollider;
+        Log.Info($"Cans: can #{t.Id} (qty {can.quantity}, price {can.price}) has been inside the reward pipe for {UnpaidDwellSeconds:0}+ s and is not paid: " +
+                 $"{hold}, active={go.activeInHierarchy}, layer={go.layer}, rb={(rb == null ? "none" : rb.isKinematic ? "kinematic" : "dynamic")}, " +
+                 $"collider={(col == null ? "none" : col.enabled ? "on" : "off")}, freeFall={can.IsFreeFall}, dist={(t.T.position - pipe).magnitude:0.0}" +
+                 (more > 0 ? $" (+{more} more)" : ""));
     }
 
     static void SendGone(uint id)

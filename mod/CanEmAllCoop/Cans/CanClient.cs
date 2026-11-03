@@ -401,6 +401,8 @@ internal static class CanClient
         p.SimUntil = 0f;
         Simulating.Remove(id);
         Active.Remove(id);
+        // The game carries a held object by writing Rigidbody.linearVelocity, which a kinematic puppet ignores.
+        if (p.Rb != null) p.Rb.isKinematic = false;
     }
 
     /// <summary>The local player let go: simulate locally for a moment so a throw does not freeze, then re-sync.</summary>
