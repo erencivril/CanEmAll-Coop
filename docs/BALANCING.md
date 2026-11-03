@@ -35,6 +35,8 @@ This split is inferred from how the game's economy is built. Which regime you ar
 
 ## 3. The idea: scale the factory, then divide the pay
 
+> **Since v0.1.3** the division is applied to the prices instead of the pay: every skill tree price is multiplied by `k` and every can pays its full value. Buying power per can is the same as dividing the pay by `k`, so the pace below is unchanged. Only the run total that rebirth points come from is still divided (with the exact carry described in section 4), so selling the factory gives the solo number of points. Permanent upgrades keep their prices.
+
 Instead of looking for one price factor, the mod does two things together, using one number `k`:
 
 1. **Make every limit `k` times bigger.** The truck delivers `k` times as many enemies (supply), and every grinder works `k` times as fast (machines). The players supply the third limit themselves by being `N` people.
@@ -110,7 +112,7 @@ The largest cell, 758 enemies per truck at N=4, is below the ceiling of `PerfCap
 
 | Not scaled | Why |
 |---|---|
-| Skill prices, the whole skill tree, permanent upgrade prices | Income is divided instead, so money stays in solo units and nothing in the shop needs to change. |
+| Permanent upgrade prices | Rebirth points stay in solo units (the run total they are computed from grows by `payout / k`). |
 | Rebirth points | They come from total money earned, which is already in solo units. A pooled total would otherwise give about the square root of N times too many points. |
 | Starting cash after a rebirth | It is a fixed amount of money, and the pace of income was already normalised. It is applied once, on the host. |
 | Day length, night shift length, the delivery cut-off before the day ends | Wall-clock pacing. More enemies do not make a day longer. |
@@ -147,7 +149,7 @@ All keys are in `BepInEx/config/com.eren.canemallcoop.cfg`, section `[Balance]` 
 | `PaceMode` | `Neutral` | Set `Free` to keep the extra enemies but skip the grinder scaling and the pay division. The team then earns whatever the shared machines allow. There is no pace guarantee: depending on the regime the team can be faster than solo. |
 | `PerfCap` | `1000` | The host stutters: lower it (600 is a reasonable try). The late game feels capped by the field: raise it. It limits the truck batch (to `PerfCap - 100`) and the field cap (to `PerfCap`); `k` follows the batch that really arrives. It can never reduce the solo cap of 750. |
 | `MaxSpawnBatch` | `650` | A truck delivery is created in one frame by the game, and a 4-player late game would ask for about 758 enemies at once. This caps the batch (on top of `PerfCap`); `k` follows the batch that really arrives. Raise it if your machine copes, lower it if the host hitches at the truck. |
-| `IncomeDivisorExponent` | `1.0` | Income is divided by `k` to this power. 1.0 is solo pace; below 1 the team earns faster, above 1 slower, 0 switches the division off. |
+| `IncomeDivisorExponent` | `1.0` | Skill prices (and the rebirth total) use `k` to this power. 1.0 is solo pace; below 1 the team progresses faster, above 1 slower, 0 switches it off. Keep it the same on every player. |
 | `ScaleConveyor` | `false` | Belts jam with the larger supply. Multiplies belt speed by about `sqrt(k)` (for the duration of the speed update, restored afterwards). |
 | `ScaleFirstBloodCounters` | `false` | You use the "first hits of the day" and "first kills of the day" rebirth perks and want them to cover the same share of a bigger day. Their counters then advance `1/k` per event. |
 | `MaxBetFraction` (section `[Rules]`) | `1.0` | Not a pace setting. Caps the slot machine stake at that fraction of the shared wallet so that one player cannot gamble the team's money away in one spin. |

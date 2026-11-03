@@ -59,6 +59,9 @@ public static class Pace
     /// <summary>True when T1 / M1 (and F6) must act.</summary>
     public static bool PaysScaled => !Disabled && Net.IsHost && CoopConfig.PaceMode == PaceMode.Neutral && SupplyNum != SupplyDen;
 
+    /// <summary>True when skill tree prices are the solo price times k (Neutral mode, online; on the host and on every client).</summary>
+    public static bool PricesScaled => !Disabled && Net.IsOnline && !IsFree && SupplyNum != SupplyDen;
+
     /// <summary>
     /// Latch N from the current session. Flow calls this at the start of every day and nothing else does: a join or a leave
     /// in the middle of a day (or in the shop) only changes the next day. N counts the host plus the clients whose game is

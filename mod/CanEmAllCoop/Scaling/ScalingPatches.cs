@@ -157,13 +157,15 @@ public static class ScalingPatches
                 DayTelemetry.OnMoney(amount, amount);
                 return true;
             }
+            // Every can pays its full value and the skill tree costs k times more (ShopPrices). Only the run total that rebirth
+            // points are computed from stays in solo units: it grows by amount / k, so Sell gives the solo number of points.
             _moneyIn += amount;
             Pace.IncomeDivisor(out long divNum, out long divDen);   // k^exponent = divNum / divDen
-            long paid = MoneyCarry.Take(amount, divDen, divNum);    // amount / k
-            _moneyOut += paid;
-            DayTelemetry.OnMoney(amount, paid);
-            if (paid <= 0) return false;
-            amount = (int)paid;
+            long solo = MoneyCarry.Take(amount, divDen, divNum);    // amount / k
+            _moneyOut += solo;
+            DayTelemetry.OnMoney(amount, solo);
+            var save = CanEmAllCoop.Economy.GameAccess.Save;
+            if (save != null) save.totalMoney -= amount - solo;     // the original adds the full amount right after
             return true;
         }
         catch (Exception e)

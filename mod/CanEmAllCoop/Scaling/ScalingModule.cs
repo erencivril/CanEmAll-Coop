@@ -29,6 +29,7 @@ public sealed class ScalingModule : ICoopModule
         ScalingConfig.Ensure();   // binds the module's config entries early (rate limited, no-op once bound) so they show in the .cfg file
         Pace.PollMode();
         DayTelemetry.Update();
+        ShopPrices.Update();
     }
 
     public void OnSessionStart()
@@ -42,6 +43,7 @@ public sealed class ScalingModule : ICoopModule
         _lastBroadcastValid = false;
         DayTelemetry.End("session end");
         Pace.Reset();
+        ShopPrices.Restore();
     }
 
     public void OnPeerJoined(Peer peer)
@@ -55,7 +57,7 @@ public sealed class ScalingModule : ICoopModule
     public string DebugState() =>
         $"N={Pace.N} players={Net.PlayerCount} mode={CoopConfig.PaceMode} eBase={Pace.EBase} eEff={Pace.EEff} k={Pace.K:0.000} " +
         $"maxEnemyCount={OrigMaxText()} scaled={(Pace.ScaledTruck ? 1 : 0)} disabled={(Pace.Disabled ? 1 : 0)} " +
-        $"moneyIn={ScalingPatches.MoneyIn} moneyOut={ScalingPatches.MoneyOut} next={Pace.PendingN} " + DayTelemetry.DebugState();
+        $"moneyIn={ScalingPatches.MoneyIn} moneyOut={ScalingPatches.MoneyOut} pricesScaled={ShopPrices.Scaled} next={Pace.PendingN} " + DayTelemetry.DebugState();
 
     static string OrigMaxText()
     {

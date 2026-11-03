@@ -7,7 +7,7 @@
 ![License MIT](https://img.shields.io/badge/license-MIT-yellow)
 ![Latest release](https://img.shields.io/github/v/release/erencivril/CanEmAll-Coop?include_prereleases)
 
-> **Status: pre-release (v0.1.2).** This version has been tested on **one PC with two game instances** joined over Direct TCP, which played several full days together. **The Steam connection between two different Steam accounts has not been confirmed yet**, and hand-played mechanics such as grabbing and throwing have not been through long sessions. Direct IP is the tested path; if Steam does not connect for you, please [open an issue](https://github.com/erencivril/CanEmAll-Coop/issues). Feedback is very welcome. See [Known limitations](#known-limitations) and [docs/TESTING.md](docs/TESTING.md) before you invite your friends.
+> **Status: pre-release (v0.1.3).** This version has been tested on **one PC with two game instances** joined over Direct TCP, which played several full days together. **The Steam connection between two different Steam accounts has not been confirmed yet**, and hand-played mechanics such as grabbing and throwing have not been through long sessions. Direct IP is the tested path; if Steam does not connect for you, please [open an issue](https://github.com/erencivril/CanEmAll-Coop/issues). Feedback is very welcome. See [Known limitations](#known-limitations) and [docs/TESTING.md](docs/TESTING.md) before you invite your friends.
 
 | What the host sees | What the client sees |
 |---|---|
@@ -21,7 +21,7 @@ Screenshots show the game's own art, which belongs to its owners.
 - **Join over Steam.** Host from the in-game F7 menu, friends join from a list of friends who are playing (and hosting). Direct IP is available as a fallback.
 - **One shared world.** Money, skill tree, permanent upgrades, upgrade points and the day clock are shared. Whoever buys a skill buys it for everyone.
 - **Host-authoritative.** The host runs the truck, the enemies, the grinders, the payouts and the save file. Clients cannot pay themselves, roll gameplay dice or write `save.sav`.
-- **Player-count balancing.** More players means more enemies per truck and faster grinders, while each payout is divided by the same factor, so a team does not finish the game in a quarter of the time. [Details below.](#how-the-balancing-works)
+- **Player-count balancing.** More players means more enemies per truck and faster grinders, while the skill tree costs the same factor more, so every can still pays its full value and a team does not finish the game in a quarter of the time. [Details below.](#how-the-balancing-works)
 - **See each other.** Remote players are drawn as avatars with name tag, weapon label, muzzle flash and shot sounds, melee swings, flamethrower and vacuum cues, and a "down" pose.
 - **Shared combat and cans.** Clients shoot the host's enemies, kills and cans are counted once on the host. Grabbing, throwing and vacuuming of cans, crates and bodies has an ownership protocol so two players cannot grab the same object.
 - **Team rules.** Elevators and the shop wait for a ready-up quorum (everyone, a majority, or everyone with a timeout). A death sends you back after a few seconds instead of ending the day for the whole team. If everybody is down it ends like a solo death.
@@ -119,7 +119,7 @@ and applies it in four places:
 |---|---|---|
 | **Supply x k** | Each truck delivers `E_eff` instead of `E` enemies, and the field cap grows with `w` (up to `PerfCap`). | Early game: otherwise there is nothing for the second player to do. |
 | **Grinder throughput x k** | Every grinder processes enemies `k` times faster (the process interval is divided by `k`). | Mid game: otherwise the machines are the bottleneck and the extra enemies pile up. |
-| **Income / k** | Each payout is divided by `k` with an exact fractional carry, so nothing is lost to rounding. | Always: this is what restores the solo pace. |
+| **Skill prices x k** | Every skill tree price is the solo price times `k` (on the host and on every client). Cans pay their full value. The run total that rebirth points come from grows by `payout / k` with an exact fractional carry, so selling the factory gives the solo number of points. Permanent upgrades (rebirth points) keep their prices. | Always: this is what restores the solo pace. |
 | **N latched per day** | `N` is fixed when a day starts. Joining or leaving takes effect at the next day, or at once while you are in the shop. | Prices and ratios never change under your feet. |
 
 Enemies per truck for a few typical solo values (`E`), with the resulting `E_eff` and, in brackets, `k`. Default settings, `PerfCap = 1000`:
@@ -131,7 +131,7 @@ Enemies per truck for a few typical solo values (`E`), with the resulting `E_eff
 | 3 | 2.41 | 2 (2.00) | 7 (2.33) | 29 (2.42) | 60 (2.40) | 217 (2.41) | 602 (2.41) |
 | 4 | 3.03 | 3 (3.00) | 9 (3.00) | 36 (3.00) | 76 (3.04) | 273 (3.03) | 758 (3.03) |
 
-`k` follows the enemies that really arrive (`E_eff / E`), not the ideal `w`: with one enemy per truck you cannot deliver 1.74 enemies, you deliver 2, so the money divisor is 2. Dividing income by the real ratio keeps the pace exact whatever the rounding or the performance cap does. The full table for every "More Enemies" tier is in [docs/BALANCING.md](docs/BALANCING.md).
+`k` follows the enemies that really arrive (`E_eff / E`), not the ideal `w`: with one enemy per truck you cannot deliver 1.74 enemies, you deliver 2, so the price factor is 2. Using the real ratio keeps the pace exact whatever the rounding or the performance cap does. The full table for every "More Enemies" tier is in [docs/BALANCING.md](docs/BALANCING.md).
 
 ### Why the prices are not simply multiplied
 
@@ -142,7 +142,7 @@ So, with prices x N:
 - **Early and mid game** (truck-bound, machine-bound): income barely changes with N, prices are N times higher, so the team is **N times slower** than a soloist.
 - **Late game** (kill-bound): income really does grow with N, so prices x N would be about right.
 
-No single price factor is right in all three regimes. Instead the mod scales the supply and the machines up by `k`, so every one of the three limits grows by `k`, and then divides the income by `k`. The result is the solo pace in whichever regime you are in. Money, total money, rebirth points and every price stay in solo units, so nothing in the UI changes and `N` can change between days.
+No single price factor is right in all three regimes. Instead the mod scales the supply and the machines up by `k`, so every one of the three limits grows by `k`, and then multiplies the skill tree prices by `k`. The result is the solo pace in whichever regime you are in, and every can pays its full value. Rebirth points stay in solo units, and prices follow `k` when `N` changes between days. (Up to v0.1.2 the mod divided each payout by `k` instead; the pace is the same, but small cans often showed no money at all.)
 
 What it does *not* do, on purpose: day length, enemy health, can values, weapon damage and ammo, per-player stats and the skill prices are unchanged. [docs/BALANCING.md](docs/BALANCING.md) has the list and the reasons, and the config valves.
 
@@ -162,12 +162,12 @@ The config file is created on first launch with the mod: `BepInEx/config/com.ere
 | Section | Key | Default | Range / values | Meaning |
 |---|---|---|---|---|
 | Balance | `WorkloadExponent` | `0.8` | 0.3 to 1.5 | Exponent `a` in `w(N) = N^a`. 1.0 is linear and hardest to keep up with, lower is easier. |
-| Balance | `PaceMode` | `Neutral` | `Neutral`, `Free` | `Neutral`: supply and grinders scale up, income is divided (team pace is about solo pace). `Free`: only the enemy supply scales, the team earns what the shared machines allow. |
+| Balance | `PaceMode` | `Neutral` | `Neutral`, `Free` | `Neutral`: supply and grinders scale up, skill prices are multiplied by `k` (team pace is about solo pace). `Free`: only the enemy supply scales, the team earns what the shared machines allow. |
 | Balance | `PerfCap` | `1000` | 100 to 5000 | Upper bound for registered enemies on the host (limits the truck batch and field cap). Lower it if the host stutters. |
 | Balance | `ScaleConveyor` | `false` | true / false | Also speed up the conveyor belts with the player count. Only if belts jam. |
 | Balance | `ScaleFirstBloodCounters` | `false` | true / false | Scale the First Blood and Starting Shockwave per-day counters with the player count. |
 | Balance | `MaxSpawnBatch` | `650` | 1 to 5000 | Largest truck delivery (enemies created in one frame) the scaling may ask for, on top of `PerfCap`. Without it a 4-player late game would create about 758 enemies in one frame and hitch. `k` follows the batch that really arrives. |
-| Balance | `IncomeDivisorExponent` | `1.0` | 0 to 2 | Income is divided by `k` to this power. 1.0 keeps a team at solo pace, below 1 the team earns faster, above 1 slower, 0 switches the division off. |
+| Balance | `IncomeDivisorExponent` | `1.0` | 0 to 2 | Skill prices (and the rebirth total) use `k` to this power. 1.0 keeps a team at solo pace, below 1 the team progresses faster, above 1 slower, 0 switches it off. Keep it the same on every player. |
 | Rules | `RespawnSeconds` | `5` | 0 to 60 | Seconds until a downed player respawns while the team is alive. |
 | Rules | `ReadyPolicy` | `All` | `All`, `Majority`, `AllWithTimeout` | Who must be ready before the next day or the elevator moves on. |
 | Rules | `ReadyTimeoutSeconds` | `60` | 5 to 600 | For `AllWithTimeout`: seconds before the host continues without the missing players. |
@@ -190,7 +190,7 @@ Changes to the balance settings apply at the next rescale (the next day start or
 `BepInEx/LogOutput.log` in the game folder (BepInEx and this mod). The game's own log is `%USERPROFILE%\AppData\LocalLow\LuisDev\Can 'Em All\Player.log`. For bug reports attach the `LogOutput.log` of **both** players. Setting `StateLogSeconds = 2` adds a `[STATE]` line every 2 seconds, which helps a lot.
 
 **The game does not start, or nothing happens after install.**
-The first launch with BepInEx takes 1 to 3 minutes. Wait for it. If the main menu comes but F7 does nothing, check that `BepInEx/plugins/CanEmAllCoop/CanEmAllCoop.dll` exists and that `LogOutput.log` contains a line `Can 'Em All Co-op 0.1.2 loaded`. Make sure `winhttp.dll` is next to `Can 'Em All.exe` and that you extracted into the right folder.
+The first launch with BepInEx takes 1 to 3 minutes. Wait for it. If the main menu comes but F7 does nothing, check that `BepInEx/plugins/CanEmAllCoop/CanEmAllCoop.dll` exists and that `LogOutput.log` contains a line `Can 'Em All Co-op 0.1.3 loaded`. Make sure `winhttp.dll` is next to `Can 'Em All.exe` and that you extracted into the right folder.
 
 **My friend does not show up in the list.**
 - Both of you must be **Steam friends**, online on Steam (not "Offline" or "Invisible"), running the game **with the mod**.

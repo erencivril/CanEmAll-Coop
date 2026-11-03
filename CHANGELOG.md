@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-04
+
+### Changed
+
+- Balancing now raises prices instead of cutting pay. Every can pays its full value; every skill tree price is the solo price times `k` (host and clients). The run total that rebirth points come from still grows by `payout / k`, so selling the factory gives the solo number of points. Permanent upgrades keep their prices. The team pace is unchanged. Before, small cans often paid nothing visible because each payout was divided by `k`.
+
+All players must update: 0.1.3 refuses older versions.
+
 ## [0.1.2] - 2026-11-04
 
 ### Fixed
@@ -69,7 +77,8 @@ First public release.
 
 See the README for the complete list.
 
-[Unreleased]: https://github.com/erencivril/CanEmAll-Coop/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/erencivril/CanEmAll-Coop/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/erencivril/CanEmAll-Coop/releases/tag/v0.1.3
 [0.1.2]: https://github.com/erencivril/CanEmAll-Coop/releases/tag/v0.1.2
 [0.1.1]: https://github.com/erencivril/CanEmAll-Coop/releases/tag/v0.1.1
 [0.1.0]: https://github.com/erencivril/CanEmAll-Coop/releases/tag/v0.1.0

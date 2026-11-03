@@ -78,6 +78,14 @@ public static class PaceMath
         den = FixedDen;
     }
 
+    /// <summary>Co-op skill price: the solo price times num/den (the income divisor), rounded half up, at most int.MaxValue.</summary>
+    public static int ScalePrice(int solo, long num, long den)
+    {
+        if (solo <= 0 || den < 1 || num <= den) return solo;
+        long p = (solo * num + den / 2) / den;
+        return p > int.MaxValue ? int.MaxValue : (int)p;
+    }
+
     /// <summary>Default of the one-frame spawn valve: the largest truck batch Truck.SpawnEnemiesInsideTruck is asked to create at once.</summary>
     public const int DefaultMaxSpawnBatch = 650;
 

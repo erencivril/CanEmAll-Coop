@@ -405,4 +405,19 @@ public class ScalingTests
         Assert.False(s.HasActivity);
         Assert.Equal(0, s.MoneyIn);
     }
+
+    [Theory]
+    [InlineData(100, 2, 1, 200)]          // k = 2
+    [InlineData(100, 7, 4, 175)]          // k = 1.75
+    [InlineData(5, 5, 3, 8)]              // 8.33 -> 8
+    [InlineData(3, 5, 3, 5)]              // 5.0 exactly
+    [InlineData(100, 1, 1, 100)]          // solo
+    [InlineData(0, 2, 1, 0)]              // free stays free
+    [InlineData(100, 1, 2, 100)]          // a ratio below 1 never lowers a price
+    public void ScalePrice_MultipliesBySupplyRatio(int solo, long num, long den, int expected) =>
+        Assert.Equal(expected, PaceMath.ScalePrice(solo, num, den));
+
+    [Fact]
+    public void ScalePrice_ClampsToIntMax() =>
+        Assert.Equal(int.MaxValue, PaceMath.ScalePrice(666_666_666, 4, 1));
 }
