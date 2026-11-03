@@ -7,7 +7,7 @@
 ![License MIT](https://img.shields.io/badge/license-MIT-yellow)
 ![Latest release](https://img.shields.io/github/v/release/erencivril/CanEmAll-Coop?include_prereleases)
 
-> **Status: pre-release (v0.1.0).** This version has been tested on **one PC with two game instances** joined over Direct TCP, which played several full days together. **The Steam connection between two different Steam accounts has not been confirmed yet**, and hand-played mechanics such as grabbing and throwing have not been through long sessions. Direct IP is the tested path; if Steam does not connect for you, please [open an issue](https://github.com/erencivril/CanEmAll-Coop/issues). Feedback is very welcome. See [Known limitations](#known-limitations) and [docs/TESTING.md](docs/TESTING.md) before you invite your friends.
+> **Status: pre-release (v0.1.1).** This version has been tested on **one PC with two game instances** joined over Direct TCP, which played several full days together. **The Steam connection between two different Steam accounts has not been confirmed yet**, and hand-played mechanics such as grabbing and throwing have not been through long sessions. Direct IP is the tested path; if Steam does not connect for you, please [open an issue](https://github.com/erencivril/CanEmAll-Coop/issues). Feedback is very welcome. See [Known limitations](#known-limitations) and [docs/TESTING.md](docs/TESTING.md) before you invite your friends.
 
 | What the host sees | What the client sees |
 |---|---|
@@ -190,7 +190,7 @@ Changes to the balance settings apply at the next rescale (the next day start or
 `BepInEx/LogOutput.log` in the game folder (BepInEx and this mod). The game's own log is `%USERPROFILE%\AppData\LocalLow\LuisDev\Can 'Em All\Player.log`. For bug reports attach the `LogOutput.log` of **both** players. Setting `StateLogSeconds = 2` adds a `[STATE]` line every 2 seconds, which helps a lot.
 
 **The game does not start, or nothing happens after install.**
-The first launch with BepInEx takes 1 to 3 minutes. Wait for it. If the main menu comes but F7 does nothing, check that `BepInEx/plugins/CanEmAllCoop/CanEmAllCoop.dll` exists and that `LogOutput.log` contains a line `Can 'Em All Co-op 0.1.0 loaded`. Make sure `winhttp.dll` is next to `Can 'Em All.exe` and that you extracted into the right folder.
+The first launch with BepInEx takes 1 to 3 minutes. Wait for it. If the main menu comes but F7 does nothing, check that `BepInEx/plugins/CanEmAllCoop/CanEmAllCoop.dll` exists and that `LogOutput.log` contains a line `Can 'Em All Co-op 0.1.1 loaded`. Make sure `winhttp.dll` is next to `Can 'Em All.exe` and that you extracted into the right folder.
 
 **My friend does not show up in the list.**
 - Both of you must be **Steam friends**, online on Steam (not "Offline" or "Invisible"), running the game **with the mod**.

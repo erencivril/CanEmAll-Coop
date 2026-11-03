@@ -27,6 +27,7 @@ using Net = CanEmAllCoop.Net.Net;
 ///   --coop-debug-die=seconds         calls GameManager.Suicide that many seconds into a day (the path a lethal hit takes); --coop-debug-diedays=1,2 limits it to the Nth day of this process
 ///   --coop-debug-steamcheck          logs the Steam flat API state and runs StartHostSteam() for a few seconds
 ///   --coop-debug-openmenu=seconds    opens the F7 co-op panel that many seconds after the process started (so a screenshot shows the status / refusal text)
+///   --coop-debug-closemenu=seconds   closes it again that many seconds after the process started (opened at the main menu, closed in game: cursor check)
 /// </summary>
 public sealed class DebugModule : ICoopModule
 {
@@ -35,8 +36,8 @@ public sealed class DebugModule : ICoopModule
     static bool _autoWalk, _steamCheck;
     static long _money;
     static float _dieAt; static readonly HashSet<int> _dieDays = new();
-    static float _buyEvery, _hitEvery, _shotEvery, _tpEvery, _grindEvery, _openMenuAt;
-    bool _menuOpened;
+    static float _buyEvery, _hitEvery, _shotEvery, _tpEvery, _grindEvery, _openMenuAt, _closeMenuAt;
+    bool _menuOpened, _menuClosed;
     static string _tag = "inst";
 
     float _nextGrind, _nextBuy, _nextHit, _nextShot, _nextTp, _walkSince = -1f;
@@ -63,6 +64,7 @@ public sealed class DebugModule : ICoopModule
                 case "--coop-debug-autowalk": _autoWalk = true; break;
                 case "--coop-debug-steamcheck": _steamCheck = true; break;
                 case "--coop-debug-openmenu": _openMenuAt = Secs(value, 30f); break;
+                case "--coop-debug-closemenu": _closeMenuAt = Secs(value, 60f); break;
                 case "--coop-debug-money": long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out _money); break;
                 case "--coop-debug-autobuy": _buyEvery = Secs(value, 4f); break;
                 case "--coop-debug-autohit": _hitEvery = Secs(value, 1.5f); break;
@@ -113,7 +115,16 @@ public sealed class DebugModule : ICoopModule
         if (_openMenuAt > 0f && !_menuOpened && now >= _openMenuAt)
         {
             _menuOpened = true;
-            Safe(() => { HarmonyLib.AccessTools.Field(typeof(CanEmAllCoop.UI.CoopMenu), "_open").SetValue(null, true); Log.Info("[DEBUG] co-op panel opened"); }, "openmenu");
+            Safe(() => { CanEmAllCoop.UI.CoopMenu.SetOpen(true); Log.Info("[DEBUG] co-op panel opened"); }, "openmenu");
+        }
+        if (_closeMenuAt > 0f && _menuOpened && !_menuClosed && now >= _closeMenuAt)
+        {
+            _menuClosed = true;
+            Safe(() =>
+            {
+                CanEmAllCoop.UI.CoopMenu.SetOpen(false);
+                Log.Info($"[DEBUG] co-op panel closed in phase {FlowCore.Phase}: cursor {Cursor.lockState}, visible={Cursor.visible}");
+            }, "closemenu");
         }
     }
 

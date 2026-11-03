@@ -57,6 +57,19 @@ internal static partial class FlowCore
     /// <summary>Online and taking part in the host's game (a client that has not started the hosted game is not).</summary>
     internal static bool Playing => Net.IsHost || (Net.IsClient && _hostedGame);
 
+    /// <summary>The local player is walking around the factory: day/night, alive, not paused, no game menu on screen.</summary>
+    internal static bool IsLocalGameplay()
+    {
+        if (Phase is not (FlowPhase.Day or FlowPhase.Night) || IsDown) return false;
+        var gm = GM;
+        if (gm == null || gm.IsPaused || Player.Instance == null) return false;
+        var menu = Menu.Instance;
+        if (menu != null && menu.menuPanel != null && menu.menuPanel.activeInHierarchy) return false;
+        var settings = Settings.Instance;
+        if (settings != null && settings.settingsPanel != null && settings.settingsPanel.activeInHierarchy) return false;
+        return true;
+    }
+
     // ------------------------------------------------------------------------------------------------ loop tracking
 
     /// <summary>MoveNext prefix of GameManager._GameLoop_d__178. Returns true = run the original.</summary>

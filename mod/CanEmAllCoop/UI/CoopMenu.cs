@@ -44,7 +44,13 @@ internal static class CoopMenu
         catch (Exception) { return; } // legacy input unavailable: no hotkey, command-line driven only
         if (!pressed) return;
 
-        _open = !_open;
+        SetOpen(!_open);
+    }
+
+    public static void SetOpen(bool open)
+    {
+        if (open == _open) return;
+        _open = open;
         if (_open)
         {
             _nextFriendScanMs = 0;
@@ -74,10 +80,36 @@ internal static class CoopMenu
         Net.JoinSteam(LaunchArgs.JoinSteamId);
     }
 
-    /// <summary>The game re-locks the cursor every frame while playing; while the menu is open keep it free.</summary>
+    /// <summary>Set by Flow: the local player is walking around (day/night, not paused, not in a game menu), so the cursor belongs locked.</summary>
+    public static Func<bool> InGameplay;
+
+    static bool IsInGameplay()
+    {
+        try { return InGameplay != null && InGameplay(); }
+        catch (Exception) { return false; }
+    }
+
+    static int _relocks;
+
+    static void LockCursor()
+    {
+        if (Cursor.lockState == CursorLockMode.Locked && !Cursor.visible) return;
+        if (_relocks++ < 5) Log.Info($"Cursor: locked for gameplay (was {Cursor.lockState}, visible={Cursor.visible})");
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    /// <summary>
+    /// While the menu is open keep the cursor free. While it is closed and online, keep it locked during gameplay: the game only
+    /// locks it on its own transitions, which a mid-day join (started by the mod, not by the menu's Play button) skips.
+    /// </summary>
     public static void KeepCursorFree()
     {
-        if (!_open) return;
+        if (!_open)
+        {
+            if (Net.IsOnline && IsInGameplay()) LockCursor();
+            return;
+        }
         if (!_savedCursor)
         {
             _savedLock = Cursor.lockState;
@@ -91,9 +123,11 @@ internal static class CoopMenu
     static void RestoreCursor()
     {
         if (!_savedCursor) return;
+        _savedCursor = false;
+        // the state saved when the menu opened goes stale if the game changed scene meanwhile (opened at the main menu, closed in game)
+        if (IsInGameplay()) { LockCursor(); return; }
         Cursor.lockState = _savedLock;
         Cursor.visible = _savedVisible;
-        _savedCursor = false;
     }
 
     public static void Draw()

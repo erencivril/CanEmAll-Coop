@@ -19,7 +19,7 @@ public class Plugin : BasePlugin
 {
     public const string Guid = "com.eren.canemallcoop";
     public const string Name = "Can 'Em All Co-op";
-    public const string Version = "0.1.0";
+    public const string Version = "0.1.1";
 
     public static Harmony Harmony { get; private set; }
 

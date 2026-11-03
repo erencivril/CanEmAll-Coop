@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-03
+
+### Fixed
+
+- Mouse cursor stayed visible in game. Closing the F7 panel restored the cursor state saved when the panel opened, so a panel opened at the main menu and closed in game left the cursor free. A client that joined a running day could also miss the game's own cursor lock. While online, the cursor is now kept locked during the day and night (not while paused, in the shop, down, or with the F7 panel open), and closing the panel in game locks it.
+
+### Added
+
+- `--coop-debug-closemenu=seconds` debug switch (pairs with `--coop-debug-openmenu`).
+
+All players must update: 0.1.0 and 0.1.1 refuse each other.
+
 ## [0.1.0] - 2026-11-03
 
 First public release.
@@ -40,5 +52,6 @@ First public release.
 
 See the README for the complete list.
 
-[Unreleased]: https://github.com/erencivril/CanEmAll-Coop/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/erencivril/CanEmAll-Coop/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/erencivril/CanEmAll-Coop/releases/tag/v0.1.1
 [0.1.0]: https://github.com/erencivril/CanEmAll-Coop/releases/tag/v0.1.0

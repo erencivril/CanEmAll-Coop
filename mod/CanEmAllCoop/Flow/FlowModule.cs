@@ -32,6 +32,7 @@ public sealed class FlowModule : ICoopModule
         // cross-module hooks (read live by scaling / avatar)
         CanEmAllCoop.Scaling.Pace.IsDayRunning = () => FlowCore.Phase is FlowPhase.Day or FlowPhase.Night or FlowPhase.DayEnding;
         CanEmAllCoop.Avatar.AvatarModule.LocalDownProvider = () => FlowCore.IsDown;
+        CanEmAllCoop.UI.CoopMenu.InGameplay = FlowCore.IsLocalGameplay;
 
         try { FlowPatches.Apply(harmony); }
         catch (System.Exception e) { Log.Error("Flow: applying the patches failed", e); }
